@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MJ MUSIC PLAYER</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{box-sizing:border-box;font-family:"Poppins",sans-serif;margin:0;}
+body{height:100vh;display:flex;align-items:center;justify-content:center;
+background:linear-gradient(-45deg,#eaf2ff,#9ecbff,#ecf75b,#b7d9ff,#51f783,#f76946,#f746bf);
+background-size:400% 400%;animation:bgMove 12s ease infinite;}
+@keyframes bgMove{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.opening-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+background:linear-gradient(-45deg,#eaf2ff,#9ecbff,#ecf75b,#b7d9ff,#51f783,#f76946,#f746bf);
+background-size:400% 400%;animation:bgMove 12s ease infinite;z-index:1000;opacity:1;transition:.5s;}
+.opening-screen.hidden{opacity:0;pointer-events:none;}
+.loader{width:80px;height:80px;position:relative;}
+.loader-circle{position:absolute;width:100%;height:100%;border-radius:50%;border:4px solid transparent;
+animation:rotate 1.5s linear infinite;}
+.loader-circle:nth-child(1){border-top-color:#3b82f6;animation-delay:.1s;}
+.loader-circle:nth-child(2){border-right-color:#51f783;animation-delay:.2s;}
+.loader-circle:nth-child(3){border-bottom-color:#f746bf;animation-delay:.3s;}
+@keyframes rotate{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+.loader-text{margin-top:30px;text-align:center;color:#0a2540;font-weight:600;font-size:20px;letter-spacing:1px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.7;}}
+.main-content{opacity:0;transition:.5s;}
+.main-content.visible{opacity:1;}
+.wrapper{display:flex;gap:18px;}
+.player{width:360px;padding:25px;border-radius:28px;backdrop-filter:blur(20px);
+background:rgba(255,255,255,.55);box-shadow:0 20px 45px rgba(0,0,0,.25);color:#0a2540;}
+.playlist{width:460px;height:220px;padding:30px;border-radius:24px;background:transparent;overflow-y:auto;}
+.playlist h3{text-align:center;font-size:16px;margin-bottom:12px;color:#0a2540;}
+.song{padding:10px 12px;margin-bottom:8px;border-radius:14px;font-size:14px;background:rgba(255,255,255,.7);
+cursor:pointer;transition:.25s;}
+.song:hover{background:#dbeaff;}
+.song.active{background:#3b82f6;color:#fff;}
+.visual-wrap{position:relative;width:260px;height:260px;margin:auto;}
+#waveCanvas{position:absolute;inset:0;}
+.album{position:absolute;inset:45px;border-radius:50%;
+background:radial-gradient(circle,#fff 0%,#cfd9e6 40%,#9db8ff 55%,#fff 75%);
+box-shadow:0 0 30px rgba(0,0,0,.35);animation:spin 6s linear infinite;animation-play-state:paused;}
+.album::after{content:"";position:absolute;width:26px;height:26px;border-radius:50%;background:#fff;
+top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:inset 0 0 6px rgba(0,0,0,.25);}
+.album.playing{animation-play-state:running;box-shadow:0 0 25px rgba(59,130,246,.9),0 0 60px rgba(59,130,246,.6);}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.info{text-align:center;margin-top:15px;}
+.info h2{font-size:18px;margin:6px 0;}
+.info p{font-size:13px;opacity:.7;}
+.progress-container{background:rgba(0,0,0,.15);height:6px;border-radius:10px;margin:16px 0;cursor:pointer;}
+.progress{height:100%;width:0%;background:#3b82f6;border-radius:10px;}
+.time{display:flex;justify-content:space-between;font-size:11px;opacity:.8;}
+.controls{display:flex;justify-content:center;gap:24px;margin:22px 0;}
+.controls button{width:56px;height:56px;border-radius:50%;border:none;font-size:22px;cursor:pointer;background:rgba(255,255,255,.85);color:#0a2540;}
+.controls button:active{transform:scale(.9);}
+.upload-tab{margin-top:10px;padding:12px;border-radius:18px;background:#e7f0ff;text-align:center;cursor:pointer;font-size:14px;}
+.upload-tab input{display:none;}
+</style>
+</head>
+<body>
+<div class="opening-screen" id="openingScreen">
+  <div class="loader-content">
+    <div class="loader"><div class="loader-circle"></div><div class="loader-circle"></div><div class="loader-circle"></div></div>
+    <div class="loader-text">MJ MUSIC PLAYER</div>
+  </div>
+</div>
+<div class="main-content" id="mainContent">
+  <div class="wrapper">
+    <div class="player">
+      <div class="visual-wrap">
+        <canvas id="waveCanvas" width="260" height="260"></canvas>
+        <div class="album" id="album"></div>
+      </div>
+      <div class="info"><h2 id="title">No song selected</h2><p id="artist">Upload music</p></div>
+      <div class="progress-container" id="progressContainer"><div class="progress" id="progress"></div></div>
+      <div class="time"><span id="currentTime">0:00</span><span id="duration">0:00</span></div>
+      <div class="controls"><button id="prev">⏮</button><button id="play">▶</button><button id="next">⏭</button></div>
+      <label class="upload-tab">🎵 Add Music<input type="file" id="fileInput" accept="audio/*" multiple></label>
+    </div>
+    <div class="playlist"><h3>MJ MUSIC PLAYER</h3><div id="playlistSongs"></div></div>
+  </div>
+</div>
+<audio id="audio"></audio>
+<script>
+const openingScreen=document.getElementById('openingScreen'),mainContent=document.getElementById('mainContent');
+window.addEventListener('load',()=>setTimeout(()=>{openingScreen.classList.add('hidden');mainContent.classList.add('visible');},2000));
+
+const audio=document.getElementById("audio"),playBtn=document.getElementById("play"),
+prevBtn=document.getElementById("prev"),nextBtn=document.getElementById("next"),
+progress=document.getElementById("progress"),progressContainer=document.getElementById("progressContainer"),
+fileInput=document.getElementById("fileInput"),album=document.getElementById("album"),
+playlistUI=document.getElementById("playlistSongs"),
+title=document.getElementById("title"),artist=document.getElementById("artist"),
+currentTimeEl=document.getElementById("currentTime"),durationEl=document.getElementById("duration");
+
+let songs=[],songIndex=0,isPlaying=false;
+
+const audioCtx=new (window.AudioContext||window.webkitAudioContext)(),
+analyser=audioCtx.createAnalyser();analyser.fftSize=256;
+const source=audioCtx.createMediaElementSource(audio);source.connect(analyser);analyser.connect(audioCtx.destination);
+const dataArray=new Uint8Array(analyser.frequencyBinCount);
+const canvas=document.getElementById("waveCanvas"),ctx=canvas.getContext("2d");
+
+const drawWave=()=>{requestAnimationFrame(drawWave);analyser.getByteFrequencyData(dataArray);ctx.clearRect(0,0,canvas.width,canvas.height);
+const cx=canvas.width/2,cy=canvas.height/2,radius=95;
+dataArray.forEach((v,i)=>{const a=(i/dataArray.length)*Math.PI*2;ctx.strokeStyle="#3b82f6";ctx.lineWidth=2;ctx.beginPath();
+ctx.moveTo(cx+Math.cos(a)*radius,cy+Math.sin(a)*radius);ctx.lineTo(cx+Math.cos(a)*(radius+v/3),cy+Math.sin(a)*(radius+v/3));ctx.stroke();});};
+
+playBtn.onclick=()=>isPlaying?pauseSong():playSong();
+function playSong(){audio.play();audioCtx.resume();playBtn.textContent="⏸";album.classList.add("playing");isPlaying=true;drawWave();highlight();}
+function pauseSong(){audio.pause();playBtn.textContent="▶";album.classList.remove("playing");isPlaying=false;}
+
+function loadSong(i){audio.src=songs[i].url;title.textContent=songs[i].name;artist.textContent="Local File";}
+nextBtn.onclick=()=>{songIndex=(songIndex+1)%songs.length;loadSong(songIndex);playSong();}
+prevBtn.onclick=()=>{songIndex=(songIndex-1+songs.length)%songs.length;loadSong(songIndex);playSong();}
+
+audio.ontimeupdate=()=>{if(!audio.duration)return;progress.style.width=(audio.currentTime/audio.duration)*100+"%";
+currentTimeEl.textContent=format(audio.currentTime);durationEl.textContent=format(audio.duration);};
+progressContainer.onclick=e=>audio.currentTime=(e.offsetX/progressContainer.clientWidth)*audio.duration;
+function format(t){const m=Math.floor(t/60),s=Math.floor(t%60).toString().padStart(2,"0");return`${m}:${s}`;}
+
+function renderPlaylist(){playlistUI.innerHTML="";songs.forEach((s,i)=>{const div=document.createElement("div");
+div.className="song"+(i===songIndex?" active":"");div.textContent=s.name;div.onclick=()=>{songIndex=i;loadSong(i);playSong();};
+playlistUI.appendChild(div);});}
+
+function highlight(){document.querySelectorAll(".song").forEach((el,i)=>el.classList.toggle("active",i===songIndex));}
+
+fileInput.onchange=e=>{songs=[...e.target.files].map(f=>({name:f.name.replace(/\.[^/.]+$/,""),url:URL.createObjectURL(f)}));
+songIndex=0;loadSong(songIndex);renderPlaylist();playSong();};
+</script>
+</body>
+</html>
